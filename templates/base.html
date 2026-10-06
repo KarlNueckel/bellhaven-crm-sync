@@ -31,7 +31,10 @@
 </style>
 </head>
 <body>
-<header><b>Bellhaven CRM Review</b><a href="/">Queue</a><a href="/log">API log</a></header>
-<main>{% block body %}{% endblock %}</main>
+<header><b>Bellhaven CRM Review</b><a href="/">Queue</a><a href="/log">API log</a>
+  <form method="post" action="/sync" style="margin-left:auto"><button>Re-run sync</button></form></header>
+<main>
+{% for m in get_flashed_messages() %}<div class="card note">{{ m }}</div>{% endfor %}
+{% block body %}{% endblock %}</main>
 </body>
 </html>

@@ -35,16 +35,21 @@ def cmd_scrape():
         print(f"{'':<48} {r['phone']} | admin: {r['administrator']} | {', '.join(r['care_offerings'])}{flag}")
 
 
-def cmd_match():
-    conn = connect()
+def match(conn):
+    """Read the CRM, compare with the stored site data, queue proposals. Used by the CLI and the app."""
     sites = load_sites(conn)
     if not sites:
         raise SystemExit("No site data yet. Run: python run.py scrape")
     crm = CRM(conn=conn)
     accounts, contacts = crm.accounts(), crm.contacts()
-    print(f"{len(sites)} site locations, {len(accounts)} CRM accounts, {len(contacts)} contacts\n")
-
     found, summary = matcher.build_proposals(sites, accounts, contacts)
+    counts = proposals.save(conn, found)
+    return found, summary, counts, (len(sites), len(accounts), len(contacts))
+
+
+def cmd_match():
+    found, summary, (new, skipped, pending), sizes = match(connect())
+    print("{} site locations, {} CRM accounts, {} contacts\n".format(*sizes))
     by_type = defaultdict(list)
     for p in found:
         by_type[p["type"]].append(p)
@@ -63,7 +68,6 @@ def cmd_match():
                 for k, v in p["proposed"].items():
                     print(f"      {k}: {p['crm'].get(k)!r} -> {v!r}")
 
-    new, skipped, pending = proposals.save(conn, found)
     print(f"\nQueue: {new} new, {pending} already pending, {skipped} skipped (already decided)")
 
 

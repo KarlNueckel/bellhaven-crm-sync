@@ -103,3 +103,27 @@ The POST/PATCH bodies are not documented, so these are the shapes we send. Use t
   `PATCH /accounts/{old}` `{"chow_current_account": "<new id>"}`
 - Duplicate: `PATCH /accounts/{id}` `{"duplicate_of_account": "<survivor>", "status": "Inactive"}`
 - Orphan: `PATCH /accounts/{id}` `{"status": "Needs Review", "note": "..."}` or `{"chow_current_account": "<id>"}`
+
+## How to test end to end
+
+1. `pytest -q`: 24 tests pass, with no network needed.
+2. `python run.py sync`: 35 site locations, 121 CRM accounts, 27 proposals queued.
+3. `python run.py match` again: the last line says `0 new`.
+4. `python run.py serve`, open http://127.0.0.1:5000:
+   - Approve one safe item (e.g. the Sycamore Ridge name fix), then check the result on the card and the
+     **API log** page.
+   - Reject another item.
+   - Click **Re-run sync**: neither item comes back (`skipped (already decided)`).
+
+## Making a change on the spot
+
+| Request | Where |
+|---|---|
+| New street abbreviation or spelling variant | add a pair to `SUFFIXES` / `DIRECTIONALS` / `NAME_WORDS` in `normalize.py` |
+| New care label | `CARE_MAP` in `normalize.py` |
+| Change the SOP rule (e.g. revenue OR AR) | `has_billing_history()` in `sop.py` |
+| Change survivor priority | `rank()` inside `pick_survivor()` in `matcher.py` |
+| Add/remove a match signal | `match_site()` in `matcher.py` |
+| Compare another field (e.g. phone) | `field_differences()` in `matcher.py` |
+
+After any change: `pytest -q`, then `python run.py match`.

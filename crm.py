@@ -25,7 +25,8 @@ class CRM:
                 (datetime.now(timezone.utc).isoformat(timespec="seconds"), method,
                  resp.url, json.dumps(body) if body is not None else None, resp.status_code, resp.text),
             )
-        resp.raise_for_status()
+        if not resp.ok:  # surface the API's reason (e.g. a 422 validation message), not just the code
+            raise RuntimeError(f"{method} {path} -> {resp.status_code}: {resp.text[:500]}")
         return resp.json()
 
     def list_all(self, path, **params):

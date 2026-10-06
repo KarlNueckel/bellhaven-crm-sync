@@ -1,13 +1,16 @@
 """Review app: approve or reject proposals. Only an approval writes to the CRM."""
 import json
 
-from flask import Flask, g, redirect, render_template, request, url_for
+from flask import Flask, flash, g, redirect, render_template, request, url_for
 
 import proposals
+import run
+import scraper
 from crm import CRM
 from db import connect
 
 app = Flask(__name__)
+app.secret_key = "local-review-app"  # only used for flash messages
 
 TYPES = [
     ("field_update", "Field updates"), ("reparent", "Re-parents"), ("chow", "Change of ownership (CHOW)"),
@@ -54,3 +57,12 @@ def decide(pid, action):
 def log():
     rows = db().execute("SELECT * FROM api_log ORDER BY id DESC LIMIT 300").fetchall()
     return render_template("log.html", rows=rows)
+
+
+@app.post("/sync")
+def sync():
+    """Same as `python run.py sync`: re-scrape, re-read the CRM, queue anything new."""
+    scraper.scrape()
+    _, _, (new, skipped, pending), _ = run.match(db())
+    flash(f"Sync done: {new} new, {pending} still pending, {skipped} skipped (already decided).")
+    return redirect(url_for("queue"))

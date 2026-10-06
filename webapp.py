@@ -1,0 +1,56 @@
+"""Review app: approve or reject proposals. Only an approval writes to the CRM."""
+import json
+
+from flask import Flask, g, redirect, render_template, request, url_for
+
+import proposals
+from crm import CRM
+from db import connect
+
+app = Flask(__name__)
+
+TYPES = [
+    ("field_update", "Field updates"), ("reparent", "Re-parents"), ("chow", "Change of ownership (CHOW)"),
+    ("create", "Create account"), ("duplicate", "Mark duplicate"), ("orphan", "Orphans"),
+    ("decision", "Needs your decision"),
+]
+
+
+def db():
+    if "conn" not in g:
+        g.conn = connect()
+    return g.conn
+
+
+@app.teardown_appcontext
+def close(_):
+    if "conn" in g:
+        g.conn.close()
+
+
+@app.route("/")
+def queue():
+    show = request.args.get("show", "pending")
+    statuses = ("pending", "failed") if show == "pending" else ("approved", "rejected")
+    rows = db().execute(
+        f"SELECT * FROM proposals WHERE status IN ({','.join('?' * len(statuses))}) ORDER BY id", statuses
+    ).fetchall()
+    groups = []
+    for key, label in TYPES:
+        items = [{**dict(r), "p": json.loads(r["payload"])} for r in rows if r["type"] == key]
+        if items:
+            groups.append((label, items))
+    counts = dict(db().execute("SELECT status, COUNT(*) FROM proposals GROUP BY status").fetchall())
+    return render_template("queue.html", groups=groups, show=show, counts=counts)
+
+
+@app.post("/proposals/<int:pid>/<action>")
+def decide(pid, action):
+    proposals.decide(db(), CRM(conn=db()), pid, approve=(action == "approve"))
+    return redirect(url_for("queue", show=request.args.get("show", "pending")) + f"#p{pid}")
+
+
+@app.route("/log")
+def log():
+    rows = db().execute("SELECT * FROM api_log ORDER BY id DESC LIMIT 300").fetchall()
+    return render_template("log.html", rows=rows)

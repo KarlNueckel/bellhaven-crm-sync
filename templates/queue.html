@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block body %}
+<p class="tabs">
+  <a href="/?show=pending">Pending ({{ counts.get('pending', 0) + counts.get('failed', 0) }})</a>
+  <a href="/?show=decided">Decided ({{ counts.get('approved', 0) + counts.get('rejected', 0) }})</a>
+</p>
+{% if not groups %}<p>Nothing here. Run <code>python run.py sync</code> to look for changes.</p>{% endif %}
+
+{% for label, items in groups %}
+<h2>{{ label }} ({{ items|length }})</h2>
+{% for r in items %}{% set p = r.p %}
+<div class="card" id="p{{ r.id }}">
+  <h3>{{ p.title }} <span class="status {{ r.status }}">{{ r.status }}</span></h3>
+  {% if p.note %}<div class="note">{{ p.note }}</div>{% endif %}
+
+  <div class="cols">
+    <div>
+      <b>Website</b>
+      {% if p.site %}
+      <table>
+        <tr><th>Name</th><td>{{ p.site.name }}</td></tr>
+        <tr><th>Address</th><td>{{ p.site.street }}, {{ p.site.city }}, {{ p.site.state }} {{ p.site.zip }}</td></tr>
+        <tr><th>Phone</th><td>{{ p.site.phone }}</td></tr>
+        <tr><th>Administrator</th><td>{{ p.site.administrator }}</td></tr>
+        <tr><th>Care</th><td>{{ p.site.care_offerings|join(', ') }}</td></tr>
+        <tr><th>Page</th><td><a href="{{ p.site.url }}" target="_blank">{{ p.site.url.split('/')[-1] }}</a></td></tr>
+      </table>
+      {% else %}<p><i>Not on the website.</i></p>{% endif %}
+    </div>
+    <div>
+      <b>CRM</b>
+      {% if p.crm %}
+      <table>
+        <tr><th>Account</th><td>{{ p.crm.account_id }}</td></tr>
+        <tr {% if 'name' in p.proposed %}class="diff"{% endif %}><th>Name</th><td>{{ p.crm.name }}</td></tr>
+        <tr><th>Parent</th><td>{{ p.crm.parent_name or '(none)' }}</td></tr>
+        <tr {% if 'billing_street' in p.proposed or 'billing_zip' in p.proposed %}class="diff"{% endif %}>
+          <th>Address</th><td>{{ p.crm.billing_street }}, {{ p.crm.billing_city }}, {{ p.crm.billing_state }} {{ p.crm.billing_zip }}</td></tr>
+        <tr><th>Phone</th><td>{{ p.crm.phone }}</td></tr>
+        <tr><th>Care / Status</th><td>{{ p.crm.care_type }} / {{ p.crm.status }}</td></tr>
+        <tr><th>Revenue / AR</th><td>{{ p.crm.lifetime_revenue }} / {{ p.crm.outstanding_ar }}</td></tr>
+      </table>
+      {% else %}<p><i>No CRM account. One will be created.</i></p>{% endif %}
+    </div>
+  </div>
+
+  <b>Evidence</b>
+  <ul>{% for e in p.evidence %}<li>{{ e }}</li>{% endfor %}</ul>
+
+  {% if p.actions %}
+  <details><summary>API calls on approve ({{ p.actions|length }})</summary>
+    {% for a in p.actions %}<pre>{{ a.method }} {{ a.path }}
+{{ a.body|tojson(indent=2) }}</pre>{% endfor %}
+  </details>
+  {% endif %}
+
+  {% if r.result %}<details {% if r.status == 'failed' %}open{% endif %}><summary>Result</summary><pre>{{ r.result }}</pre></details>{% endif %}
+
+  {% if r.status in ('pending', 'failed') %}
+  <div class="btns">
+    <form method="post" action="/proposals/{{ r.id }}/approve?show={{ show }}">
+      <button class="approve">{% if p.actions %}{{ 'Retry' if r.status == 'failed' else 'Approve' }} &amp; write to CRM{% else %}Acknowledge (no write){% endif %}</button>
+    </form>
+    <form method="post" action="/proposals/{{ r.id }}/reject?show={{ show }}"><button class="reject">Reject</button></form>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endfor %}
+{% endblock %}

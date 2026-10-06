@@ -1,0 +1,46 @@
+name: Daily site-to-CRM sync
+
+on:
+  schedule:
+    - cron: "0 11 * * *"   # 11:00 UTC daily (6-7am US Eastern)
+  workflow_dispatch:        # allow a manual run from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - run: pytest -q
+
+      # Keep the SQLite DB between runs so decided proposals are never re-proposed.
+      - name: Restore database
+        uses: actions/cache/restore@v4
+        with:
+          path: bellhaven.db
+          key: bellhaven-db-${{ github.run_id }}
+          restore-keys: bellhaven-db-
+
+      - name: Scrape site and queue proposals (read-only against the CRM)
+        env:
+          CRM_TOKEN: ${{ secrets.CRM_TOKEN }}
+        run: python run.py sync | tee sync-summary.txt
+
+      - name: Save database
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bellhaven.db
+          key: bellhaven-db-${{ github.run_id }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sync-summary
+          path: sync-summary.txt

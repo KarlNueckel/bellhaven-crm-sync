@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>API log (latest 300)</h2>
+<table>
+  <tr><th>Time</th><th>Call</th><th>Status</th><th>Request / response</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.ts }}</td>
+    <td>{{ r.method }} {{ r.url.split('/api/v1')[-1] }}</td>
+    <td>{{ r.status }}</td>
+    <td>
+      {% if r.request_body %}<pre>{{ r.request_body }}</pre>{% endif %}
+      <details><summary>response</summary><pre>{{ r.response_body[:3000] }}</pre></details>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

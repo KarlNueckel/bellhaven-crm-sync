@@ -1,6 +1,6 @@
 # Writeup
 
-**Time spent:** _[fill in your honest estimate, e.g. "about 3 hours"]_
+**Time spent:** about 3 hours
 
 ## Matching approach
 

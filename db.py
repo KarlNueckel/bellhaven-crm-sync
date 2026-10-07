@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS proposals (
     created_at  TEXT NOT NULL,
     decided_at  TEXT
 );
+
+-- Reviewer decisions for sites the rules can't resolve (e.g. which duplicate survives).
+CREATE TABLE IF NOT EXISTS decisions (
+    site_slug   TEXT PRIMARY KEY,
+    account_id  TEXT NOT NULL,
+    decided_at  TEXT NOT NULL
+);
 """
 
 

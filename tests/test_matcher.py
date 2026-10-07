@@ -122,3 +122,14 @@ def test_retired_accounts_are_ignored():
         account("new", "Bellhaven of A", "1 A St", "Aville", "11111", BELL),
     ])
     assert props == [] and len(summary["clean"]) == 1
+
+
+def test_reviewer_pick_resolves_flagged_site():
+    sites = [site("k", "Bellhaven of K", "3313 Wilmington Pike", "Kettering", "45429")]
+    accounts = [account("1", "K One", "3313 Wilmington Pike", "Kettering", "45429", ""),
+                account("2", "K Two", "3313 Wilmington Pk", "Kettering", "45429", OTHER)]
+    props, _ = matcher.build_proposals(sites, PARENTS + accounts, [], decisions={"k": "2"})
+    kinds = {p["type"]: p for p in props}
+    assert set(kinds) == {"duplicate", "reparent"}
+    assert kinds["duplicate"]["proposed"]["duplicate_of_account"] == "2"
+    assert kinds["reparent"]["account_id"] == "2" and kinds["reparent"]["proposed"]["parent_id"] == BELL

@@ -27,6 +27,8 @@ cp .env.example .env               # then paste your token into CRM_TOKEN
 | `python run.py serve`  | Review app at http://127.0.0.1:5000 |
 | `pytest -q`            | Tests for the normalizer, matcher, SOP, and idempotency |
 
+See [WRITEUP.md](WRITEUP.md) for the decisions behind the results.
+
 The review app lists pending proposals grouped by type. Each one shows the website and CRM data side by side,
 the evidence, and the exact API calls that run on approval. **API log** shows every CRM request and response.
 
@@ -61,7 +63,7 @@ the evidence, and the exact API calls that run on approval. **API log** shows ev
    - **Several accounts at one site:** pick a survivor. The order is correct parent, then phone/contact
      match, then revenue. The others are *marked duplicate* (`duplicate_of_account` = survivor,
      `status` = Inactive). If no account is under Bellhaven, it is **flagged for a human decision**
-     (Kettering).
+     (Kettering). The reviewer clicks **Keep** on one account, and the matching changes are queued.
    - **Account under the wrong parent:** run the **SOP** (`sop.apply_parent_change_sop`). If
      `lifetime_revenue > 0` AND `outstanding_ar > 0`, the old account is not touched. A new account is
      created under Bellhaven, and the old account's `chow_current_account` is set to the new id (*CHOW*).

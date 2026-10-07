@@ -59,3 +59,11 @@ def test_chow_links_old_account_to_created_id():
     proposals.save(conn, [p])
     proposals.decide(conn, crm, 1, approve=True)
     assert crm.calls[1] == ("PATCH", "OLD", {"chow_current_account": "NEW1"})
+
+
+def test_reopen_puts_rejected_item_back():
+    conn = connect(":memory:")
+    proposals.save(conn, [proposal()])
+    proposals.decide(conn, FakeCRM(), 1, approve=False)
+    proposals.reopen(conn, 1)
+    assert conn.execute("SELECT status FROM proposals").fetchone()[0] == "pending"

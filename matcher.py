@@ -117,8 +117,13 @@ def match_site(site, candidates, contacts_by_account):
     return None, []
 
 
-def pick_survivor(site, group, operator_id, contacts_by_account):
-    """Correct parent first, then phone/contact match, then revenue history. None if no account is under the operator."""
+def pick_survivor(site, group, operator_id, contacts_by_account, chosen_id=None):
+    """Correct parent first, then phone/contact match, then revenue history. None if no account is under the operator.
+
+    chosen_id is a reviewer's decision (from the review app) and always wins."""
+    for a in group:
+        if a["account_id"] == chosen_id:
+            return a
     under_operator = [a for a in group if a["parent_id"] == operator_id]
     if not under_operator:
         return None
@@ -132,12 +137,14 @@ def pick_survivor(site, group, operator_id, contacts_by_account):
 
 # ---------------------------------------------------------------- proposals
 
-def build_proposals(sites, accounts, contacts):
-    """Compare every site location with the CRM. Returns (proposals, summary)."""
+def build_proposals(sites, accounts, contacts, decisions=None):
+    """Compare every site location with the CRM. Returns (proposals, summary).
+
+    decisions: {site_slug: account_id} survivors a reviewer picked for flagged sites."""
+    decisions = decisions or {}
     operator = find_operator_parent(accounts)
     op_id = operator["account_id"]
     parent_ids = {a["parent_id"] for a in accounts if a["parent_id"]}
-    by_id = {a["account_id"]: a for a in accounts}
     candidates = [a for a in accounts if not is_parent_account(a, parent_ids) and not is_retired(a)]
     contacts_by_account = {}
     for c in contacts:
@@ -175,13 +182,16 @@ def build_proposals(sites, accounts, contacts):
         # Several accounts at one site -> pick a survivor, mark the rest duplicates.
         account = group[0]
         if len(group) > 1:
-            survivor = pick_survivor(site, group, op_id, contacts_by_account)
+            survivor = pick_survivor(site, group, op_id, contacts_by_account, decisions.get(site["slug"]))
             if survivor is None:
                 ev = [f"{a['name']} [{a['account_id']}] parent={a['parent_name'] or 'none'}: "
                       + "; ".join(describe(evidence_for(site, a, contacts_by_account))) for a in group]
                 propose("decision", site, group[0], {"candidates": [a["account_id"] for a in group]}, [],
                         ev, f"Decide: {len(group)} accounts at {label}, none under {OPERATOR_NAME}",
                         note="No survivor can be chosen by rule. Needs a human decision.")
+                proposals[-1]["options"] = [
+                    {"account_id": a["account_id"], "name": a["name"], "parent_name": a["parent_name"] or "no parent"}
+                    for a in group]
                 summary["flagged"].append(label)
                 continue
             for loser in group:
@@ -190,6 +200,7 @@ def build_proposals(sites, accounts, contacts):
                 body = {"duplicate_of_account": survivor["account_id"], "status": "Inactive"}
                 sv = evidence_for(site, survivor, contacts_by_account)
                 ev = [f"same {signal} as survivor {survivor['name']} [{survivor['account_id']}]",
+                      *(["survivor picked by the reviewer"] if decisions.get(site["slug"]) == survivor["account_id"] else []),
                       f"survivor chosen by: parent={survivor['parent_name']}, phone match={sv['phone']}, "
                       f"admin contact={sv['admin_contact']}, revenue={survivor['lifetime_revenue']}",
                       "this account:"]

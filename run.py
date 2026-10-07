@@ -42,7 +42,8 @@ def match(conn):
         raise SystemExit("No site data yet. Run: python run.py scrape")
     crm = CRM(conn=conn)
     accounts, contacts = crm.accounts(), crm.contacts()
-    found, summary = matcher.build_proposals(sites, accounts, contacts)
+    decisions = dict(conn.execute("SELECT site_slug, account_id FROM decisions").fetchall())
+    found, summary = matcher.build_proposals(sites, accounts, contacts, decisions)
     counts = proposals.save(conn, found)
     return found, summary, counts, (len(sites), len(accounts), len(contacts))
 

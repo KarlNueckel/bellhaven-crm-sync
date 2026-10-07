@@ -56,7 +56,20 @@
 
   {% if r.result %}<details {% if r.status == 'failed' %}open{% endif %}><summary>Result</summary><pre>{{ r.result }}</pre></details>{% endif %}
 
-  {% if r.status in ('pending', 'failed') %}
+  {% if r.type == 'decision' and r.status == 'pending' %}
+  <b>Pick the account to keep</b> (it moves under Bellhaven; the others become duplicates of it):
+  <div class="btns">
+    {% for o in p.options %}
+    <form method="post" action="/proposals/{{ r.id }}/choose/{{ o.account_id }}">
+      <button class="approve">Keep {{ o.name }} ({{ o.parent_name }})</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% elif r.status == 'rejected' %}
+  <div class="btns">
+    <form method="post" action="/proposals/{{ r.id }}/reopen"><button>Reopen (undo reject)</button></form>
+  </div>
+  {% elif r.status in ('pending', 'failed') %}
   <div class="btns">
     <form method="post" action="/proposals/{{ r.id }}/approve?show={{ show }}">
       <button class="approve">{% if p.actions %}{{ 'Retry' if r.status == 'failed' else 'Approve' }} &amp; write to CRM{% else %}Acknowledge (no write){% endif %}</button>

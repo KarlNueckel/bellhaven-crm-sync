@@ -53,6 +53,21 @@ def decide(pid, action):
     return redirect(url_for("queue", show=request.args.get("show", "pending")) + f"#p{pid}")
 
 
+@app.post("/proposals/<int:pid>/reopen")
+def reopen(pid):
+    proposals.reopen(db(), pid)
+    return redirect(url_for("queue") + f"#p{pid}")
+
+
+@app.post("/proposals/<int:pid>/choose/<account_id>")
+def choose(pid, account_id):
+    """Kettering-style flag: the reviewer picks the survivor, then the matcher queues the follow-up changes."""
+    proposals.choose_survivor(db(), pid, account_id)
+    _, _, (new, _, _), _ = run.match(db())
+    flash(f"Survivor recorded. {new} follow-up proposals queued for approval.")
+    return redirect(url_for("queue"))
+
+
 @app.route("/log")
 def log():
     rows = db().execute("SELECT * FROM api_log ORDER BY id DESC LIMIT 300").fetchall()

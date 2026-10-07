@@ -82,3 +82,22 @@ def decide(conn, crm, proposal_id, approve):
         conn.execute("UPDATE proposals SET status = ?, result = ?, decided_at = ? WHERE id = ?",
                      (status, result, now(), proposal_id))
     return conn.execute("SELECT * FROM proposals WHERE id = ?", (proposal_id,)).fetchone()
+
+
+def reopen(conn, proposal_id):
+    """Undo a rejection: put the proposal back in the pending queue."""
+    with conn:
+        conn.execute("UPDATE proposals SET status = 'pending', result = NULL, decided_at = NULL "
+                     "WHERE id = ? AND status = 'rejected'", (proposal_id,))
+
+
+def choose_survivor(conn, proposal_id, account_id):
+    """Record a reviewer's pick for a flagged site and close the flag (no CRM write)."""
+    row = conn.execute("SELECT * FROM proposals WHERE id = ? AND type = 'decision'", (proposal_id,)).fetchone()
+    if row is None or account_id not in json.loads(row["payload"])["proposed"]["candidates"]:
+        return
+    with conn:
+        conn.execute("INSERT OR REPLACE INTO decisions (site_slug, account_id, decided_at) VALUES (?,?,?)",
+                     (row["site_slug"], account_id, now()))
+        conn.execute("UPDATE proposals SET status = 'approved', result = ?, decided_at = ? WHERE id = ?",
+                     (f"reviewer chose {account_id} as survivor", now(), proposal_id))
